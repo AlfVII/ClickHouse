@@ -396,10 +396,12 @@ public:
     };
 
     KitchenSink kitchen_sink;
+    mutable bool has_alter = false;
 
 private:
     using SampleBlockCache = std::unordered_map<std::string, Block>;
     mutable SampleBlockCache sample_block_cache;
+
 
     PartUUIDsPtr part_uuids; /// set of parts' uuids, is used for query parts deduplication
     PartUUIDsPtr ignored_part_uuids; /// set of parts' uuids are meant to be excluded from query processing

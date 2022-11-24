@@ -313,6 +313,22 @@ BlockIO InterpreterInsertQuery::execute()
     QueryPlanResourceHolder resources;
 
     StoragePtr table = getTable(query);
+
+
+                    //         std::cout << "StorageMergeTree writing" << has_alter << std::endl;
+                    // std::cout << "StorageMergeTree on write has alter: " << has_alter << std::endl;
+
+
+    std::cout << "InterpreterInsertQuery insert" << table->getName() << std::endl;
+    std::cout << "InterpreterInsertQuery insert" << table->getName() << std::endl;
+
+    std::cout << "InterpreterInsertQuery insert" << table->has_alter << std::endl;
+    std::cout << "InterpreterInsertQuery insert" << table->has_alter << std::endl;
+    while (table->has_alter)
+    {
+        std::cout << "InterpreterInsertQuery insert: " << table->has_alter << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<size_t>(3000)));
+    }
     checkStorageSupportsTransactionsIfNeeded(table, getContext());
 
     StoragePtr inner_table;

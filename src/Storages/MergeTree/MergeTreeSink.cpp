@@ -30,6 +30,15 @@ MergeTreeSink::MergeTreeSink(
 
 void MergeTreeSink::onStart()
 {
+
+    std::cout << "MergeTreeSink onStart has alter: " << storage.has_alter << std::endl;
+
+    while (storage.has_alter)
+    {
+        std::cout << "MergeTreeSink onStart has alter: " << storage.has_alter << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<size_t>(500)));
+    }
+
     /// Only check "too many parts" before write,
     /// because interrupting long-running INSERT query in the middle is not convenient for users.
     storage.delayInsertOrThrowIfNeeded(nullptr, context);

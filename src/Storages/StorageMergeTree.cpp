@@ -259,6 +259,16 @@ std::optional<UInt64> StorageMergeTree::totalBytes(const Settings &) const
 SinkToStoragePtr
 StorageMergeTree::write(const ASTPtr & /*query*/, const StorageMetadataPtr & metadata_snapshot, ContextPtr local_context)
 {
+    std::cout << "StorageMergeTree writing" << has_alter << std::endl;
+    std::cout << "StorageMergeTree on write has alter: " << has_alter << std::endl;
+
+    while (has_alter)
+    {
+        std::cout << "StorageMergeTree on write has alter: " << has_alter << std::endl;
+        std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<size_t>(3000)));
+    }
+
+
     const auto & settings = local_context->getSettingsRef();
     return std::make_shared<MergeTreeSink>(
         *this, metadata_snapshot, settings.max_partitions_per_insert_block, local_context);
@@ -315,6 +325,14 @@ void StorageMergeTree::alter(
     Int64 mutation_version = -1;
     commands.apply(new_metadata, local_context);
 
+
+    has_alter = true;
+    local_context->has_alter = true;
+    std::cout << "Mierda" << std::endl;
+    std::cout << local_context->has_alter << std::endl;
+    delayInsertOrThrowIfNeeded(nullptr, local_context);
+
+
     /// This alter can be performed at new_metadata level only
     if (commands.isSettingsAlter())
     {
@@ -363,6 +381,8 @@ void StorageMergeTree::alter(
             deduplication_log->setDeduplicationWindowSize(new_storage_settings->non_replicated_deduplication_window);
         }
     }
+    has_alter = false;
+    local_context->has_alter = false;
 }
 
 
