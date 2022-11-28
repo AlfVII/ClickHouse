@@ -759,17 +759,6 @@ BlockIO InterpreterSelectQuery::execute()
     BlockIO res;
     QueryPlan query_plan;
 
-    std::cout << "InterpreterSelectQuery insert" << storage->getName() << std::endl;
-    std::cout << "InterpreterSelectQuery insert" << storage->getName() << std::endl;
-
-    std::cout << "InterpreterSelectQuery insert" << storage->has_alter << std::endl;
-    std::cout << "InterpreterSelectQuery insert" << storage->has_alter << std::endl;
-    while (storage->has_alter)
-    {
-        std::cout << "InterpreterSelectQuery insert: " << storage->has_alter << std::endl;
-        std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<size_t>(3000)));
-    }
-
     buildQueryPlan(query_plan);
 
     auto builder = query_plan.buildQueryPipeline(

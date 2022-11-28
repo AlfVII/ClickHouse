@@ -240,8 +240,6 @@ public:
 
     /// Return true if storage can execute lightweight delete mutations.
     virtual bool supportsLightweightDelete() const { return false; }
-    
-    mutable bool has_alter = false;
 
 private:
 

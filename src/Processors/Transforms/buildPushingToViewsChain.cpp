@@ -255,14 +255,7 @@ Chain buildPushingToViewsChain(
 
     for (const auto & database_table : dependencies)
     {
-        auto dependent_table = DatabaseCatalog::instance().tryGetTable(database_table, context);
-        if (dependent_table == nullptr)
-        {
-            LOG_WARNING(
-                &Poco::Logger::get("PushingToViews"), "Trying to access table {} but it doesn't exist", database_table.getFullTableName());
-            continue;
-        }
-
+        auto dependent_table = DatabaseCatalog::instance().getTable(database_table, context);
         auto dependent_metadata_snapshot = dependent_table->getInMemoryMetadataPtr();
 
         ASTPtr query;
@@ -306,19 +299,8 @@ Chain buildPushingToViewsChain(
 
         if (auto * materialized_view = dynamic_cast<StorageMaterializedView *>(dependent_table.get()))
         {
-            auto lock = materialized_view->tryLockForShare(context->getInitialQueryId(), context->getSettingsRef().lock_acquire_timeout);
-
-            if (lock == nullptr)
-            {
-                LOG_WARNING(
-                    &Poco::Logger::get("PushingToViews"),
-                    "Trying to access table {} but it doesn't exist",
-                    database_table.getFullTableName());
-                continue;
-            }
-
             type = QueryViewsLogElement::ViewType::MATERIALIZED;
-            result_chain.addTableLock(lock);
+            result_chain.addTableLock(materialized_view->lockForShare(context->getInitialQueryId(), context->getSettingsRef().lock_acquire_timeout));
 
             StoragePtr inner_table = materialized_view->getTargetTable();
             auto inner_table_id = inner_table->getStorageID();
@@ -389,7 +371,7 @@ Chain buildPushingToViewsChain(
         }
     }
 
-    if (views_data && !views_data->views.empty())
+    if (views_data)
     {
         size_t num_views = views_data->views.size();
         const Settings & settings = context->getSettingsRef();

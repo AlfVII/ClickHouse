@@ -313,7 +313,6 @@ BlockIO InterpreterInsertQuery::execute()
     QueryPlanResourceHolder resources;
 
     StoragePtr table = getTable(query);
-
     checkStorageSupportsTransactionsIfNeeded(table, getContext());
 
     StoragePtr inner_table;

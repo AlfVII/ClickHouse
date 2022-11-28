@@ -14,7 +14,6 @@
 #include <Storages/AlterCommands.h>
 #include <Backups/RestorerFromBackup.h>
 #include <Backups/IBackup.h>
-#include <ctime>
 
 
 namespace DB
@@ -42,7 +41,8 @@ RWLockImpl::LockHolder IStorage::tryLockTimed(
         const String type_str = type == RWLockImpl::Type::Read ? "READ" : "WRITE";
         throw Exception(
             type_str + " locking attempt on \"" + getStorageID().getFullTableName() + "\" has timed out! ("
-                + std::to_string(acquire_timeout.count()) + " at " + std::to_string(std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count()) + "ms) "
+                + std::to_string(acquire_timeout.count())
+                + "ms) "
                   "Possible deadlock avoided. Client should retry.",
             ErrorCodes::DEADLOCK_AVOIDED);
     }
