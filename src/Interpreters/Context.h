@@ -396,7 +396,6 @@ public:
     };
 
     KitchenSink kitchen_sink;
-    mutable bool has_alter = false;
 
 private:
     using SampleBlockCache = std::unordered_map<std::string, Block>;
