@@ -1963,19 +1963,6 @@ void TCPHandler::sendProgress()
     increment.elapsed_ns = current_elapsed_ns - state.prev_elapsed_ns;
     state.prev_elapsed_ns = current_elapsed_ns;
 
-                // element.os_read_bytes = CurrentThread::getGroup()->performance_counters[ProfileEvents::OSReadChars];
-                // element.read_compressed_bytes = CurrentThread::getGroup()->performance_counters[ProfileEvents::ReadCompressedBytes];
-                // element.read_decompressed_blocks = CurrentThread::getGroup()->performance_counters[ProfileEvents::CompressedReadBufferBlocks];
-                // element.read_decompressed_bytes = CurrentThread::getGroup()->performance_counters[ProfileEvents::CompressedReadBufferBytes];
-                // element.selected_parts = CurrentThread::getGroup()->performance_counters[ProfileEvents::SelectedParts];
-                // element.selected_bytes = CurrentThread::getGroup()->performance_counters[ProfileEvents::SelectedBytes];
-                // element.selected_marks = CurrentThread::getGroup()->performance_counters[ProfileEvents::SelectedMarks];
-                // element.selected_rows = CurrentThread::getGroup()->performance_counters[ProfileEvents::SelectedRows];
-                // element.os_written_bytes = CurrentThread::getGroup()->performance_counters[ProfileEvents::OSWriteChars];
-                // element.inserted_rows = CurrentThread::getGroup()->performance_counters[ProfileEvents::InsertedRows];
-                // element.inserted_bytes = CurrentThread::getGroup()->performance_counters[ProfileEvents::InsertedBytes];
-
-
     increment.os_read_bytes = CurrentThread::getGroup()->performance_counters[ProfileEvents::OSReadChars];
     increment.read_compressed_bytes = CurrentThread::getGroup()->performance_counters[ProfileEvents::ReadCompressedBytes];
     increment.read_decompressed_blocks = CurrentThread::getGroup()->performance_counters[ProfileEvents::CompressedReadBufferBlocks];
