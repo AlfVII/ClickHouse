@@ -117,6 +117,7 @@ namespace ErrorCodes
     extern const int UNEXPECTED_PACKET_FROM_CLIENT;
     extern const int UNKNOWN_PROTOCOL;
     extern const int AUTHENTICATION_FAILED;
+    extern const int QUERY_WAS_CANCELLED;
 }
 
 TCPHandler::TCPHandler(IServer & server_, TCPServer & tcp_server_, const Poco::Net::StreamSocket & socket_, bool parse_proxy_protocol_, std::string server_display_name_)
@@ -285,7 +286,11 @@ void TCPHandler::runImpl()
                 query_context->getSettingsRef(),
                 query_context->getOpenTelemetrySpanLog());
 
-            query_scope.emplace(query_context);
+            query_scope.emplace(query_context, /* fatal_error_callback */ [this]
+            {
+                std::lock_guard lock(fatal_error_mutex);
+                sendLogs();
+            });
 
             /// If query received, then settings in query_context has been updated.
             /// So it's better to update the connection settings for flexibility.
@@ -306,11 +311,6 @@ void TCPHandler::runImpl()
                 state.logs_queue->max_priority = Poco::Logger::parseLevel(client_logs_level.toString());
                 state.logs_queue->setSourceRegexp(query_context->getSettingsRef().send_logs_source_regexp);
                 CurrentThread::attachInternalTextLogsQueue(state.logs_queue, client_logs_level);
-                CurrentThread::setFatalErrorCallback([this]
-                {
-                    std::lock_guard lock(fatal_error_mutex);
-                    sendLogs();
-                });
             }
             if (client_tcp_protocol_version >= DBMS_MIN_PROTOCOL_VERSION_WITH_INCREMENTAL_PROFILE_EVENTS)
             {
@@ -423,17 +423,25 @@ void TCPHandler::runImpl()
             after_check_cancelled.restart();
             after_send_progress.restart();
 
+            auto finish_or_cancel = [this]()
+            {
+                if (state.is_cancelled)
+                    state.io.onCancelOrConnectionLoss();
+                else
+                    state.io.onFinish();
+            };
+
             if (state.io.pipeline.pushing())
             {
                 /// FIXME: check explicitly that insert query suggests to receive data via native protocol,
                 state.need_receive_data_for_insert = true;
                 processInsertQuery();
-                state.io.onFinish();
+                finish_or_cancel();
             }
             else if (state.io.pipeline.pulling())
             {
                 processOrdinaryQueryWithProcessors();
-                state.io.onFinish();
+                finish_or_cancel();
             }
             else if (state.io.pipeline.completed())
             {
@@ -462,7 +470,7 @@ void TCPHandler::runImpl()
                     executor.execute();
                 }
 
-                state.io.onFinish();
+                finish_or_cancel();
 
                 std::lock_guard lock(task_callback_mutex);
 
@@ -476,7 +484,7 @@ void TCPHandler::runImpl()
             }
             else
             {
-                state.io.onFinish();
+                finish_or_cancel();
             }
 
             /// Do it before sending end of stream, to have a chance to show log message in client.
@@ -666,6 +674,7 @@ bool TCPHandler::readDataNext()
             {
                 LOG_INFO(log, "Client has dropped the connection, cancel the query.");
                 state.is_connection_closed = true;
+                state.is_cancelled = true;
                 break;
             }
 
@@ -709,6 +718,9 @@ void TCPHandler::readData()
 
     while (readDataNext())
         ;
+
+    if (state.is_cancelled)
+        throw Exception(ErrorCodes::QUERY_WAS_CANCELLED, "Query was cancelled");
 }
 
 
@@ -719,6 +731,9 @@ void TCPHandler::skipData()
 
     while (readDataNext())
         ;
+
+    if (state.is_cancelled)
+        throw Exception(ErrorCodes::QUERY_WAS_CANCELLED, "Query was cancelled");
 }
 
 
@@ -755,7 +770,10 @@ void TCPHandler::processInsertQuery()
         while (readDataNext())
             executor.push(std::move(state.block_for_insert));
 
-        executor.finish();
+        if (state.is_cancelled)
+            executor.cancel();
+        else
+            executor.finish();
     };
 
     if (num_threads > 1)
@@ -1054,7 +1072,7 @@ bool TCPHandler::receiveProxyHeader()
     /// Only PROXYv1 is supported.
     /// Validation of protocol is not fully performed.
 
-    LimitReadBuffer limit_in(*in, 107, true); /// Maximum length from the specs.
+    LimitReadBuffer limit_in(*in, 107, /* trow_exception */ true, /* exact_limit */ {}); /// Maximum length from the specs.
 
     assertString("PROXY ", limit_in);
 
@@ -1214,14 +1232,7 @@ void TCPHandler::receiveHello()
 
     session = makeSession();
     auto & client_info = session->getClientInfo();
-
-    /// Extract the last entry from comma separated list of forwarded_for addresses.
-    /// Only the last proxy can be trusted (if any).
-    String forwarded_address = client_info.getLastForwardedFor();
-    if (!forwarded_address.empty() && server.config().getBool("auth_use_forwarded_address", false))
-        session->authenticate(user, password, Poco::Net::SocketAddress(forwarded_address, socket().peerAddress().port()));
-    else
-        session->authenticate(user, password, socket().peerAddress());
+    session->authenticate(user, password, getClientAddress(client_info));
 }
 
 void TCPHandler::receiveAddendum()
@@ -1322,6 +1333,9 @@ bool TCPHandler::receivePacket()
                 std::this_thread::sleep_for(ms);
             }
 
+            LOG_INFO(log, "Received 'Cancel' packet from the client, canceling the query");
+            state.is_cancelled = true;
+
             return false;
         }
 
@@ -1363,6 +1377,7 @@ String TCPHandler::receiveReadTaskResponseAssumeLocked()
     {
         if (packet_type == Protocol::Client::Cancel)
         {
+            LOG_INFO(log, "Received 'Cancel' packet from the client, canceling the read task");
             state.is_cancelled = true;
             /// For testing connection collector.
             if (unlikely(sleep_in_receive_cancel.totalMilliseconds()))
@@ -1396,6 +1411,7 @@ std::optional<ParallelReadResponse> TCPHandler::receivePartitionMergeTreeReadTas
     {
         if (packet_type == Protocol::Client::Cancel)
         {
+            LOG_INFO(log, "Received 'Cancel' packet from the client, canceling the MergeTree read task");
             state.is_cancelled = true;
             /// For testing connection collector.
             if (unlikely(sleep_in_receive_cancel.totalMilliseconds()))
@@ -1507,11 +1523,16 @@ void TCPHandler::receiveQuery()
         /// so we should not rely on that. However, in this particular case we got client_info from other clickhouse-server, so it's ok.
         if (client_info.initial_user.empty())
         {
-            LOG_DEBUG(log, "User (no user, interserver mode)");
+            LOG_DEBUG(log, "User (no user, interserver mode) (client: {})", getClientAddress(client_info).toString());
         }
         else
         {
-            LOG_DEBUG(log, "User (initial, interserver mode): {}", client_info.initial_user);
+            LOG_DEBUG(log, "User (initial, interserver mode): {} (client: {})", client_info.initial_user, getClientAddress(client_info).toString());
+            /// In case of inter-server mode authorization is done with the
+            /// initial address of the client, not the real address from which
+            /// the query was come, since the real address is the address of
+            /// the initiator server, while we are interested in client's
+            /// address.
             session->authenticate(AlwaysAllowCredentials{client_info.initial_user}, client_info.initial_address);
         }
 #else
@@ -2017,6 +2038,17 @@ void TCPHandler::run()
         else
             throw;
     }
+}
+
+Poco::Net::SocketAddress TCPHandler::getClientAddress(const ClientInfo & client_info)
+{
+    /// Extract the last entry from comma separated list of forwarded_for addresses.
+    /// Only the last proxy can be trusted (if any).
+    String forwarded_address = client_info.getLastForwardedFor();
+    if (!forwarded_address.empty() && server.config().getBool("auth_use_forwarded_address", false))
+        return Poco::Net::SocketAddress(forwarded_address, socket().peerAddress().port());
+    else
+        return socket().peerAddress();
 }
 
 }
