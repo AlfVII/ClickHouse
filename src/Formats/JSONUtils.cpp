@@ -418,6 +418,39 @@ namespace JSONUtils
 
             writeTitle("bytes_read", out, 2, " ");
             writeText(progress.read_bytes.load(), out);
+            writeFieldDelimiter(out);
+
+            writeTitle("read_compressed_bytes", out, 2, " ");
+            writeText(progress.read_compressed_bytes.load(), out);
+            writeFieldDelimiter(out);
+
+            writeTitle("selected_parts", out, 2, " ");
+            writeText(progress.selected_parts.load(), out);
+            writeFieldDelimiter(out);
+
+            writeTitle("os_read_bytes", out, 2, " ");
+            writeText(progress.os_read_bytes.load(), out);
+            writeFieldDelimiter(out);
+
+            writeTitle("read_decompressed_blocks", out, 2, " ");
+            writeText(progress.read_decompressed_blocks.load(), out);
+            writeFieldDelimiter(out);
+
+            writeTitle("read_decompressed_bytes", out, 2, " ");
+            writeText(progress.read_decompressed_bytes.load(), out);
+            writeFieldDelimiter(out);
+
+            writeTitle("selected_bytes", out, 2, " ");
+            writeText(progress.selected_bytes.load(), out);
+            writeFieldDelimiter(out);
+
+            writeTitle("selected_marks", out, 2, " ");
+            writeText(progress.selected_marks.load(), out);
+            writeFieldDelimiter(out);
+
+            writeTitle("selected_rows", out, 2, " ");
+            writeText(progress.selected_rows.load(), out);
+
 
             writeObjectEnd(out, 1);
         }

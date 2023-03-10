@@ -30,6 +30,20 @@ struct ProgressValues
 
     UInt64 elapsed_ns = 0;
 
+
+    UInt64 os_read_bytes = 0;
+    UInt64 read_compressed_bytes = 0;
+    UInt64 read_decompressed_blocks = 0;
+    UInt64 read_decompressed_bytes = 0;
+    UInt64 selected_parts = 0;
+    UInt64 selected_bytes = 0;
+    UInt64 selected_marks = 0;
+    UInt64 selected_rows = 0;
+
+    UInt64 os_written_bytes = 0;
+    UInt64 inserted_bytes = 0;
+    UInt64 inserted_rows = 0;
+
     void read(ReadBuffer & in, UInt64 server_revision);
     void write(WriteBuffer & out, UInt64 client_revision) const;
     void writeJSON(WriteBuffer & out) const;
@@ -41,6 +55,15 @@ struct ReadProgress
     UInt64 read_bytes = 0;
     UInt64 total_rows_to_read = 0;
 
+    UInt64 os_read_bytes = 0;
+    UInt64 read_compressed_bytes = 0;
+    UInt64 read_decompressed_blocks = 0;
+    UInt64 read_decompressed_bytes = 0;
+    UInt64 selected_parts = 0;
+    UInt64 selected_bytes = 0;
+    UInt64 selected_marks = 0;
+    UInt64 selected_rows = 0;
+
     ReadProgress(UInt64 read_rows_, UInt64 read_bytes_, UInt64 total_rows_to_read_ = 0)
         : read_rows(read_rows_), read_bytes(read_bytes_), total_rows_to_read(total_rows_to_read_) {}
 };
@@ -49,6 +72,10 @@ struct WriteProgress
 {
     UInt64 written_rows = 0;
     UInt64 written_bytes = 0;
+
+    UInt64 os_written_bytes = 0;
+    UInt64 inserted_bytes = 0;
+    UInt64 inserted_rows = 0;
 
     WriteProgress(UInt64 written_rows_, UInt64 written_bytes_)
         : written_rows(written_rows_), written_bytes(written_bytes_) {}
@@ -95,6 +122,19 @@ struct Progress
     std::atomic<UInt64> result_bytes {0};
 
     std::atomic<UInt64> elapsed_ns {0};
+
+    std::atomic<UInt64>  os_read_bytes {0};
+    std::atomic<UInt64>  read_compressed_bytes {0};
+    std::atomic<UInt64>  read_decompressed_blocks {0};
+    std::atomic<UInt64>  read_decompressed_bytes {0};
+    std::atomic<UInt64>  selected_parts {0};
+    std::atomic<UInt64>  selected_bytes {0};
+    std::atomic<UInt64>  selected_marks {0};
+    std::atomic<UInt64>  selected_rows {0};
+
+    std::atomic<UInt64>  os_written_bytes {0};
+    std::atomic<UInt64>  inserted_bytes {0};
+    std::atomic<UInt64>  inserted_rows {0};
 
     Progress() = default;
 
