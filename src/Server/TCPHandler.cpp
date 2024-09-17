@@ -410,6 +410,25 @@ void TCPHandler::runImpl()
                 return res;
             });
 
+
+            if (state.query == "set im_going_to_populate_so_deal_with_it = true")
+            {
+                server.context()->setSetting("im_going_to_populate_so_deal_with_it", true);
+            }
+
+            if (state.query == "set im_going_to_populate_so_deal_with_it = false")
+            {
+                server.context()->setSetting("im_going_to_populate_so_deal_with_it", false);
+            }
+
+            if (state.query.find("INSERT") != std::string::npos)
+            {
+                while (server.context()->getSettings().im_going_to_populate_so_deal_with_it)
+                {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(static_cast<size_t>(500)));
+                }
+            }
+
             /// Processing Query
             state.io = executeQuery(state.query, query_context, false, state.stage);
 
